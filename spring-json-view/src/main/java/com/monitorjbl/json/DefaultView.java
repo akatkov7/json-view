@@ -36,7 +36,7 @@ public class DefaultView {
       Map<Object, Object> map = (Map<Object, Object>) obj;
       for(Entry<Object, Object> e : map.entrySet()) {
         Match k = contains(e.getKey().getClass());
-        Match v = contains(e.getValue().getClass());
+        Match v = e.getValue() != null ? contains(e.getValue().getClass()) : null;
         if(k != null) {
           view = view.onClass(e.getKey().getClass(), k);
           found = true;
