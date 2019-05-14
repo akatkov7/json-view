@@ -3,7 +3,9 @@ package com.monitorjbl.json.model;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import java.math.BigDecimal;
@@ -26,6 +28,7 @@ public class TestObject implements TestInterface {
   @JsonIgnoreProperties({"val"})
   private TestSubobject subWithIgnores;
   private String str1;
+  @JsonInclude(value = JsonInclude.Include.NON_NULL)
   private String str2;
   @JsonIgnore
   private String ignoredDirect;
@@ -58,6 +61,8 @@ public class TestObject implements TestInterface {
   private String jsonPropNoValue;
   private UUID uuid;
   private TestObject recursion;
+  private JsonNode jsonNode;
+  private String widgetName;
 
   public String getStr1() {
     return str1;
@@ -234,7 +239,7 @@ public class TestObject implements TestInterface {
   public void setBigDecimal(BigDecimal bigDecimal) {
     this.bigDecimal = bigDecimal;
   }
-  
+
   public CustomType getCustom() {
     return custom;
   }
@@ -297,5 +302,30 @@ public class TestObject implements TestInterface {
 
   public void setRecursion(TestObject recursion) {
     this.recursion = recursion;
+  }
+
+  public JsonNode getJsonNode() {
+    return jsonNode;
+  }
+
+  public void setJsonNode(JsonNode jsonNode) {
+    this.jsonNode = jsonNode;
+  }
+
+  public String getStaticValue() {
+    return "TEST";
+  }
+
+  @JsonIgnore
+  public String getIgnoredValue() {
+    return "not_valid";
+  }
+  
+  public String getWidgetName() {
+    return widgetName;
+  }
+
+  public void setWidgetName(String widgetName) {
+    this.widgetName = widgetName;
   }
 }

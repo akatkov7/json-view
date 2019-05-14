@@ -3,6 +3,9 @@ package com.monitorjbl.json;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
@@ -11,15 +14,24 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
 import com.monitorjbl.json.model.CustomType;
 import com.monitorjbl.json.model.CustomTypeSerializer;
+import com.monitorjbl.json.model.NonReplacableKeyMap;
+import com.monitorjbl.json.model.TestAutodetect.AutodetectDefault;
+import com.monitorjbl.json.model.TestAutodetect.AutodetectFields;
+import com.monitorjbl.json.model.TestAutodetect.AutodetectGetters;
+import com.monitorjbl.json.model.TestAutodetect.AutodetectNotPresent;
 import com.monitorjbl.json.model.TestBackreferenceObject;
 import com.monitorjbl.json.model.TestBackreferenceObject.TestForwardReferenceObject;
 import com.monitorjbl.json.model.TestChildObject;
+import com.monitorjbl.json.model.TestDuplicateKeys.ClassC;
 import com.monitorjbl.json.model.TestInterface;
 import com.monitorjbl.json.model.TestNonNulls;
 import com.monitorjbl.json.model.TestNulls;
 import com.monitorjbl.json.model.TestObject;
 import com.monitorjbl.json.model.TestObject.TestEnum;
 import com.monitorjbl.json.model.TestSubobject;
+import com.monitorjbl.json.model.TestSuperinterface;
+import com.monitorjbl.json.model.TestSuperinterface.TestChildInterface;
+import com.monitorjbl.json.model.TestSuperinterface.TestInterfaceObject;
 import com.monitorjbl.json.model.TestUnrelatedObject;
 import org.junit.Before;
 import org.junit.Test;
@@ -33,7 +45,6 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -69,7 +80,7 @@ public class JsonViewSerializerTest {
     ref.setInt1(1);
     ref.setIgnoredDirect("ignore me");
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertNotNull(obj.get("int1"));
     assertEquals(ref.getInt1(), obj.get("int1"));
     assertNull(obj.get("ignoredDirect"));
@@ -81,7 +92,7 @@ public class JsonViewSerializerTest {
     ref.setInt1(1);
     ref.setIgnoredIndirect("ignore me");
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertNotNull(obj.get("int1"));
     assertEquals(ref.getInt1(), obj.get("int1"));
     assertNull(obj.get("ignoredIndirect"));
@@ -101,7 +112,7 @@ public class JsonViewSerializerTest {
             .exclude("sub.val")
             .include("ignoredDirect")));
 
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertNull(obj.get("str2"));
     assertNotNull(obj.get("sub"));
     assertNull(((Map) obj.get("sub")).get("val"));
@@ -120,7 +131,7 @@ public class JsonViewSerializerTest {
             .exclude("str2")
             .exclude("sub.val")
             .include("ignoredDirect")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertNull(obj.get("ignoredIndirect"));
     assertNotNull(obj.get("ignoredDirect"));
     assertEquals(ref.getIgnoredDirect(), obj.get("ignoredDirect"));
@@ -141,7 +152,7 @@ public class JsonViewSerializerTest {
                 .exclude("sub.val"))
             .onClass(TestSubobject.class, match()
                 .exclude("sub")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("sub"));
     assertEquals(ref.getSub().getVal(), ((Map) obj.get("sub")).get("val"));
@@ -220,6 +231,7 @@ public class JsonViewSerializerTest {
     ref3.setId(3L);
     ref3.setName("xxzcvxc");
 
+    JsonViewSerializer.log = true;
     String serialized = sut.writeValueAsString(
         JsonView.with(asList(ref1, ref2, ref3))
             .onClass(TestObject.class, match()
@@ -231,6 +243,7 @@ public class JsonViewSerializerTest {
             .onClass(TestUnrelatedObject.class, match()
                 .exclude("name")));
     List<Map<String, Object>> output = sut.readValue(serialized, ArrayList.class);
+    JsonViewSerializer.log = false;
 
     assertEquals(3, output.size());
 
@@ -260,7 +273,7 @@ public class JsonViewSerializerTest {
                 .exclude("sub.val"))
             .onClass(TestSubobject.class, match()
                 .exclude("sub")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertEquals(ref.getInt1(), obj.get("int1"));
     assertTrue(obj.get("listOfObjects") instanceof List);
@@ -280,7 +293,7 @@ public class JsonViewSerializerTest {
         JsonView.with(ref)
             .onClass(TestObject.class, match()
                 .exclude("listOfObjects.val")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertEquals(ref.getInt1(), obj.get("int1"));
     assertTrue(obj.get("listOfObjects") instanceof List);
@@ -305,7 +318,7 @@ public class JsonViewSerializerTest {
                 .exclude("sub.val"))
             .onClass(TestSubobject.class, match()
                 .exclude("sub")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertEquals(ref.getInt1(), obj.get("int1"));
     assertTrue(obj.get("mapOfObjects") instanceof Map);
@@ -330,7 +343,7 @@ public class JsonViewSerializerTest {
                 .exclude("sub.val"))
             .onClass(TestSubobject.class, match()
                 .exclude("sub")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertEquals(ref.getInt1(), obj.get("int1"));
     assertTrue(obj.get("mapWithIntKeys") instanceof Map);
@@ -351,7 +364,7 @@ public class JsonViewSerializerTest {
     ref.setSub(sub);
 
     String serialized = sut.writeValueAsString(JsonView.with(ref).onClass(TestSubobject.class, match().exclude("val")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(ref.getStr1(), obj.get("str1"));
     assertNotNull(obj.get("sub"));
     assertNull(((Map) obj.get("sub")).get("val"));
@@ -372,7 +385,7 @@ public class JsonViewSerializerTest {
             .exclude("int1", "sub.otherVal"))
         .onClass(TestSubobject.class, match()
             .exclude("val")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(ref.getStr1(), obj.get("str1"));
     assertNotNull(obj.get("sub"));
     assertNull(((Map) obj.get("sub")).get("val"));
@@ -392,7 +405,7 @@ public class JsonViewSerializerTest {
     String serialized = sut.writeValueAsString(JsonView.with(ref).onClass(TestSubobject.class, match()
         .exclude("*")
         .include("otherVal")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(ref.getStr1(), obj.get("str1"));
     assertEquals(ref.getInt1(), obj.get("int1"));
     assertNotNull(obj.get("sub"));
@@ -416,7 +429,7 @@ public class JsonViewSerializerTest {
             .onClass(TestObject.class, match()
                 .exclude("*")
                 .include("str2")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(ref.getStr2(), obj.get("str2"));
     assertNull(obj.get("str1"));
     assertNull(obj.get("mapWithIntKeys"));
@@ -441,7 +454,7 @@ public class JsonViewSerializerTest {
             .onClass(TestObject.class, match()
                 .include("*")
                 .exclude("str2")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(ref.getStr1(), obj.get("str1"));
     assertNull(obj.get("str2"));
     assertEquals(ref.getIgnoredIndirect(), obj.get("ignoredIndirect"));
@@ -455,7 +468,7 @@ public class JsonViewSerializerTest {
     ref.setDate(new Date());
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(ref.getDate().getTime(), obj.get("date"));
   }
 
@@ -469,7 +482,7 @@ public class JsonViewSerializerTest {
     ref.setDate(new Date());
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(fmt.format(ref.getDate()), obj.get("date"));
   }
 
@@ -487,7 +500,7 @@ public class JsonViewSerializerTest {
     ref.setObjArray(new TestObject[]{t1, t2});
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(Ints.asList(ref.getIntArray()), obj.get("intArray"));
     assertEquals(Arrays.asList(ref.getStringArray()), obj.get("stringArray"));
 
@@ -505,7 +518,7 @@ public class JsonViewSerializerTest {
     ref.setUrl(new URL("http://google.com"));
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(ref.getUrl().toString(), obj.get("url"));
   }
 
@@ -515,7 +528,7 @@ public class JsonViewSerializerTest {
     ref.setUri(new URI("http://google.com"));
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(ref.getUri().toString(), obj.get("uri"));
   }
 
@@ -525,7 +538,7 @@ public class JsonViewSerializerTest {
     ref.setCls(TestSubobject.class);
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertEquals(ref.getCls().getCanonicalName(), obj.get("cls"));
   }
 
@@ -535,7 +548,7 @@ public class JsonViewSerializerTest {
     ref.setTestEnum(TestEnum.VALUE_A);
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertNotNull(obj.get("testEnum"));
     assertEquals(ref.getTestEnum().toString(), obj.get("testEnum"));
   }
@@ -546,7 +559,7 @@ public class JsonViewSerializerTest {
     ref.setStr1("val1");
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
     assertNull(obj.get("PUBLIC_FIELD"));
     assertNull(obj.get("PRIVATE_FIELD"));
   }
@@ -565,7 +578,7 @@ public class JsonViewSerializerTest {
         JsonView.with(ref)
             .onClass(TestObject.class, match()
                 .exclude("listOfObjects.sub.val")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("listOfObjects"));
     List<Map<String, Map<String, Map<String, Map>>>> list = (List<Map<String, Map<String, Map<String, Map>>>>) obj.get("listOfObjects");
@@ -578,13 +591,13 @@ public class JsonViewSerializerTest {
   @Test
   public void testWriteNullValues_enabledGlobally() throws Exception {
     TestObject ref = new TestObject();
-    sut.setSerializationInclusion(Include.ALWAYS);
+    sut = sut.setSerializationInclusion(Include.ALWAYS);
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
-    assertTrue(obj.containsKey("str2"));
-    assertNull(obj.get("str2"));
+    assertTrue(obj.containsKey("list"));
+    assertNull(obj.get("list"));
   }
 
   @Test
@@ -593,7 +606,7 @@ public class JsonViewSerializerTest {
     sut.setSerializationInclusion(Include.NON_NULL);
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertFalse(obj.containsKey("str2"));
   }
@@ -604,7 +617,7 @@ public class JsonViewSerializerTest {
     sut.setSerializationInclusion(Include.NON_NULL);
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertTrue(obj.containsKey("val"));
     assertNull(obj.get("val"));
@@ -616,7 +629,7 @@ public class JsonViewSerializerTest {
     sut.setSerializationInclusion(Include.ALWAYS);
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertFalse(obj.containsKey("val"));
   }
@@ -633,7 +646,7 @@ public class JsonViewSerializerTest {
         .onClass(TestObject.class, match()
             .exclude("*")
             .include("sub.otherVal")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("sub"));
     Map m = (Map) obj.get("sub");
@@ -656,7 +669,7 @@ public class JsonViewSerializerTest {
         .onClass(TestObject.class,
             match().exclude("*")
                 .include("listOfObjects.otherVal")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("listOfObjects"));
     List<Map<String, String>> list = (List<Map<String, String>>) obj.get("listOfObjects");
@@ -676,7 +689,7 @@ public class JsonViewSerializerTest {
     String serialized = sut.writeValueAsString(JsonView.with(ref)
         .onClass(TestInterface.class,
             match().exclude("date")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("str1"));
     assertEquals(ref.getStr1(), obj.get("str1"));
@@ -695,7 +708,7 @@ public class JsonViewSerializerTest {
     String serialized = sut.writeValueAsString(JsonView.with(ref)
         .onClass(TestObject.class,
             match().exclude("sub")));
-    Map<String, Map<String, Object>> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Map<String, Object>> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNull(obj.get("sub"));
     assertNotNull(obj.get("subWithIgnores"));
@@ -714,7 +727,7 @@ public class JsonViewSerializerTest {
     back.setChildren(asList(forward));
 
     String serialized = sut.writeValueAsString(JsonView.with(forward));
-    Map<String, Map<String, Object>> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Map<String, Object>> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("parent"));
     assertEquals("back", obj.get("parent").get("id"));
@@ -726,7 +739,7 @@ public class JsonViewSerializerTest {
     ref.setBigDecimal(new BigDecimal(Math.PI));
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("bigDecimal"));
     assertEquals(3.141592653589793, obj.get("bigDecimal"));
@@ -739,7 +752,7 @@ public class JsonViewSerializerTest {
     ref.setCustom(custom);
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("custom"));
     assertTrue(obj.get("custom") instanceof Map);
@@ -756,7 +769,7 @@ public class JsonViewSerializerTest {
     sut = new ObjectMapper().registerModule(new JsonViewModule(serializer).registerSerializer(CustomType.class, new CustomTypeSerializer()));
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("custom"));
     assertTrue(obj.get("custom") instanceof String);
@@ -769,7 +782,7 @@ public class JsonViewSerializerTest {
     ref.setZonedDateTime(ZonedDateTime.now());
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("zonedDateTime"));
     assertTrue(obj.get("zonedDateTime") instanceof Number);
@@ -782,7 +795,7 @@ public class JsonViewSerializerTest {
     ref.setFormattedZonedDateTime(ZonedDateTime.now());
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("formattedZonedDateTime"));
     assertTrue(obj.get("formattedZonedDateTime") instanceof String);
@@ -794,7 +807,7 @@ public class JsonViewSerializerTest {
     ref.setJsonProp("jibjab");
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("totallyJsonProp"));
     assertEquals(ref.getJsonProp(), obj.get("totallyJsonProp"));
@@ -806,7 +819,7 @@ public class JsonViewSerializerTest {
     ref.setJsonPropNoValue("jibjab");
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("jsonPropNoValue"));
     assertEquals(ref.getJsonPropNoValue(), obj.get("jsonPropNoValue"));
@@ -825,7 +838,7 @@ public class JsonViewSerializerTest {
         .onClass(TestObject.class, match()
             .include("sub.*")
             .exclude("sub.otherVal")));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("sub"));
     assertTrue(obj.get("sub") instanceof Map);
@@ -842,7 +855,7 @@ public class JsonViewSerializerTest {
     ref.setUuid(UUID.randomUUID());
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("uuid"));
     assertEquals(ref.getUuid().toString(), obj.get("uuid"));
@@ -857,7 +870,7 @@ public class JsonViewSerializerTest {
     sut = new ObjectMapper().registerModule(new JsonViewModule(serializer));
 
     String serialized = sut.writeValueAsString(JsonView.with(ref));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNotNull(obj.get("customFieldSerializer"));
     assertTrue(obj.get("customFieldSerializer") instanceof String);
@@ -900,7 +913,7 @@ public class JsonViewSerializerTest {
         .onClass(TestObject.class, match()
             .include("recursion", "recursion.str1", "recursion.recursion.str2", "str1", "str2", "int1")
             .exclude("*")));
-    doTest.accept(sut.readValue(serialized, HashMap.class));
+    doTest.accept(sut.readValue(serialized, NonReplacableKeyMap.class));
 
     // Perform test with behavior set at the JsonView level
     sut = new ObjectMapper().registerModule(new JsonViewModule(serializer));
@@ -909,7 +922,7 @@ public class JsonViewSerializerTest {
         .onClass(TestObject.class, match()
             .include("recursion", "recursion.str1", "recursion.recursion.str2", "str1", "str2", "int1")
             .exclude("*")));
-    doTest.accept(sut.readValue(serialized, HashMap.class));
+    doTest.accept(sut.readValue(serialized, NonReplacableKeyMap.class));
   }
 
   @Test
@@ -926,7 +939,7 @@ public class JsonViewSerializerTest {
             .include("str1", "str2")
             .transform("str1", (TestObject t, String f) -> f.toUpperCase())
             .transform("str2", (TestObject t, String f) -> t.getStr1())));
-    Map<String, Object> obj = sut.readValue(serialized, HashMap.class);
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
 
     assertNull(obj.get("int1"));
     assertNotNull(obj.get("str1"));
@@ -934,4 +947,218 @@ public class JsonViewSerializerTest {
     assertNotNull(obj.get("str2"));
     assertEquals(ref.getStr1(), obj.get("str2"));
   }
+
+  @Test
+  public void testMethodGetters() throws Exception {
+    TestObject ref = new TestObject();
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertEquals("TEST", obj.get("staticValue"));
+  }
+
+  @Test
+  public void testMethodGetters_ignored() throws Exception {
+    TestObject ref = new TestObject();
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertFalse(obj.containsKey("ignoredValue"));
+  }
+
+  @Test
+  public void testMethodGetters_combinesAnnotations() throws Exception {
+    TestObject ref = new TestObject();
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertFalse(obj.containsKey("ignoredDirect"));
+  }
+
+  @Test
+  public void testAutodetect_notPresent() throws Exception {
+    AutodetectNotPresent ref = new AutodetectNotPresent();
+    ref.setId("test");
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertEquals("valid", obj.get("id"));
+  }
+
+  @Test
+  public void testAutodetect_default() throws Exception {
+    AutodetectDefault ref = new AutodetectDefault();
+    ref.setId("test");
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertEquals("valid", obj.get("id"));
+  }
+
+  @Test
+  public void testAutodetect_fieldsOnly() throws Exception {
+    AutodetectFields ref = new AutodetectFields();
+    ref.setId("test");
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertEquals("test", obj.get("id"));
+  }
+
+  @Test
+  public void testAutodetect_methodsOnly() throws Exception {
+    AutodetectGetters ref = new AutodetectGetters();
+    ref.setId("test");
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertEquals("valid", obj.get("id"));
+  }
+
+  @Test
+  public void testSuperinterfaces() throws Exception {
+    TestInterfaceObject ref = new TestInterfaceObject();
+    ref.setDescription("description");
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertEquals("ID", obj.get("id"));
+    assertEquals("NAME", obj.get("name"));
+    assertEquals("description", obj.get("description"));
+  }
+
+  @Test
+  public void testSuperinterfaces_matchers() throws Exception {
+    TestInterfaceObject ref = new TestInterfaceObject();
+    ref.setDescription("description");
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref)
+        .onClass(TestSuperinterface.class, match()
+            .exclude("id"))
+        .onClass(TestChildInterface.class, match()
+            .exclude("name")));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertFalse(obj.containsKey("id"));
+    assertFalse(obj.containsKey("name"));
+    assertEquals("description", obj.get("description"));
+  }
+
+  @Test
+  public void testSerializationOptions_includeNonNullGlobally() throws Exception {
+    TestObject ref = new TestObject();
+    ref.setInt1(1);
+    sut = sut.setSerializationInclusion(Include.NON_NULL);
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertFalse(obj.containsKey("str1"));
+    assertEquals(ref.getInt1(), obj.get("int1"));
+  }
+
+  @Test
+  public void testSerializationOptions_includeNonNullLocally() throws Exception {
+    TestObject ref = new TestObject();
+    ref.setStr1("test");
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertEquals(ref.getStr1(), obj.get("str1"));
+    assertFalse(obj.containsKey("str2"));
+  }
+
+  @Test
+  public void testSerializationOrder() throws Exception {
+    TestObject ref = new TestObject();
+    ref.setStr2("sdfsdf");
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    List<String> keys = new ArrayList<>(obj.keySet());
+    assertEquals("sub", keys.get(0));
+    assertEquals("subWithIgnores", keys.get(1));
+    assertEquals("str1", keys.get(2));
+    assertEquals("str2", keys.get(3));
+    assertEquals("date", keys.get(4));
+  }
+
+  @Test
+  public void testJacksonJsonNodeSupport_object() throws Exception {
+    TestObject ref = new TestObject();
+    ObjectNode node1 = sut.createObjectNode();
+    ObjectNode node2 = sut.createObjectNode();
+    node2.set("stringfield", new TextNode("hello"));
+    node1.set("jacksonObject", node2);
+    ref.setJsonNode(node1);
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertNotNull(obj.get("jsonNode"));
+    assertTrue(obj.get("jsonNode") instanceof Map);
+
+    Map<String, Object> jsonNode = (Map<String, Object>) obj.get("jsonNode");
+    assertTrue(jsonNode.get("jacksonObject") instanceof Map);
+    assertEquals("hello", ((Map) jsonNode.get("jacksonObject")).get("stringfield"));
+  }
+
+  @Test
+  public void testJacksonJsonNodeSupport_textNode() throws Exception {
+    TestObject ref = new TestObject();
+    ref.setJsonNode(new TextNode("asdf"));
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertEquals(obj.get("jsonNode"), "asdf");
+  }
+
+  @Test
+  public void testJacksonJsonNodeSupport_nullNode() throws Exception {
+    TestObject ref = new TestObject();
+    ref.setJsonNode(NullNode.getInstance());
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertNull(obj.get("jsonNode"));
+  }
+
+  /**
+   * Verify that multiple accessible properties are not serialized more than once (issue #59)
+   */
+  @Test
+  public void testDuplicateKeysOnInheritance() throws Exception {
+    ClassC ref = new ClassC();
+
+    String serialized = sut.writeValueAsString(JsonView.with(ref));
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+
+    assertEquals(ref.getId(), obj.get("id"));
+  }
+  
+  @Test
+  public void testFieldWithGetInName() throws IOException {
+    TestObject ref = new TestObject();
+    ref.setInt1(1);
+    ref.setWidgetName("random name");
+    String serialized = sut.writeValueAsString(
+        JsonView.with(ref).onClass(TestObject.class, match()));
+
+    Map<String, Object> obj = sut.readValue(serialized, NonReplacableKeyMap.class);
+    assertNull(obj.get("widName"));
+    assertNotNull(obj.get("widgetName"));
+  }
+
 }
