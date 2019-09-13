@@ -33,13 +33,17 @@ public class JsonViewReturnValueHandler implements HandlerMethodReturnValueHandl
       val = JsonResultRetriever.retrieve();
       log.debug("Found [" + ((JsonView) val).getValue().getClass() + "] to serialize");
     } else {
-      JsonView view = defaultView.getMatch(val);
-      if(view != null) {
-        val = view;
-        log.debug("Default view found for " + val.getClass().getCanonicalName() + ", applied before serialization");
-      } else {
-        log.debug("No JsonView found for thread, using returned value");
-      }
+      // always filter using JsonView on val instance
+      JsonView view = JsonView.with(val);
+      view.matches.putAll(defaultView.matches);
+      val = view;
+//      JsonView view = defaultView.getMatch(val);
+//      if(view != null) {
+//        val = view;
+//        log.debug("Default view found for " + val.getClass().getCanonicalName() + ", applied before serialization");
+//      } else {
+//        log.debug("No JsonView found for thread, using returned value");
+//      }
     }
 
     delegate.handleReturnValue(val, returnType, mavContainer, webRequest);

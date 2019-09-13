@@ -10,7 +10,7 @@ import java.util.Map.Entry;
  * identically to a JsonView instance, simply use the onClass() method to set matchers.
  */
 public class DefaultView {
-  private final Map<Class, Match> matches;
+  protected final Map<Class, Match> matches;
 
   private DefaultView() {
     this.matches = new HashMap<>();
